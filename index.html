@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rich Chat Client for OpenAI</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- highlight.js for syntax highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <style>
+        /* Custom scrollbar for a more modern look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937; /* gray-800 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563; /* gray-600 */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* gray-500 */
+        }
+        /* Style for the prose content from marked.js */
+        .prose {
+            color: #d1d5db; /* gray-300 */
+        }
+        .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+            color: #f9fafb; /* gray-50 */
+        }
+        .prose a {
+            color: #60a5fa; /* blue-400 */
+        }
+        .prose strong {
+            color: #f9fafb; /* gray-50 */
+        }
+        .prose code {
+            color: #f9fafb;
+            background-color: #374151; /* gray-700 */
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        .prose pre {
+            background-color: #111827; /* gray-900 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            position: relative;
+        }
+        .prose pre code {
+            background-color: transparent;
+            padding: 0;
+            font-size: 1em;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: #4b5563;
+            color: white;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .prose pre:hover .copy-btn {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans flex flex-col h-screen">
+
+    <!-- Header -->
+    <header class="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700 p-4 flex justify-between items-center">
+        <h1 class="text-xl font-semibold text-gray-200">AI Chat (OpenAI)</h1>
+        <button id="settings-btn" class="text-gray-400 hover:text-white transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+    </header>
+
+    <!-- Chat Container -->
+    <main id="chat-container" class="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+        <div id="chat-messages" class="max-w-4xl mx-auto flex flex-col space-y-8">
+            <!-- Initial AI Welcome Message -->
+            <div class="flex items-start gap-4">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-teal-500 flex items-center justify-center text-white font-bold">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+                </div>
+                <div id="initial-message" class="bg-gray-800 rounded-lg p-4 w-full prose">
+                    <p>Hello! Please add your OpenAI API key in the settings to begin. Click the ⚙️ icon in the top right.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Input Area -->
+    <footer class="bg-gray-900/70 backdrop-blur-sm border-t border-gray-700 p-4">
+        <div class="max-w-4xl mx-auto">
+            <form id="chat-form" class="flex items-end gap-3">
+                <textarea id="prompt-input" rows="1" class="flex-1 bg-gray-700 text-gray-200 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 transition" placeholder="Add API key in settings..."></textarea>
+                <button type="submit" id="send-button" class="bg-teal-600 hover:bg-teal-500 transition-colors rounded-full w-12 h-12 flex items-center justify-center flex-shrink-0 disabled:bg-teal-800 disabled:cursor-not-allowed">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                </button>
+            </form>
+        </div>
+    </footer>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center hidden z-50">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md m-4">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-white">Settings</h2>
+                <button id="close-settings-btn" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            <form id="settings-form">
+                <div class="space-y-4">
+                    <div>
+                        <label for="api-key-input" class="block text-sm font-medium text-gray-300 mb-1">OpenAI API Key</label>
+                        <input type="password" id="api-key-input" class="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-2 focus:ring-teal-500 focus:outline-none" placeholder="sk-...">
+                    </div>
+                    <div>
+                        <label for="model-select" class="block text-sm font-medium text-gray-300 mb-1">Model</label>
+                        <select id="model-select" class="w-full bg-gray-700 border border-gray-600 text-white rounded-md p-2 focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                            <option value="gpt-4o">GPT-4o</option>
+                            <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                            <option value="gpt-3.5-turbo" selected>GPT-3.5 Turbo</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button type="submit" class="bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-4 rounded-md transition-colors">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script>
+        // DOM Element References
+        const chatContainer = document.getElementById('chat-messages');
+        const chatForm = document.getElementById('chat-form');
+        const promptInput = document.getElementById('prompt-input');
+        const sendButton = document.getElementById('send-button');
+        const settingsBtn = document.getElementById('settings-btn');
+        const settingsModal = document.getElementById('settings-modal');
+        const closeSettingsBtn = document.getElementById('close-settings-btn');
+        const settingsForm = document.getElementById('settings-form');
+        const apiKeyInput = document.getElementById('api-key-input');
+        const modelSelect = document.getElementById('model-select');
+        const initialMessage = document.getElementById('initial-message');
+
+        // App State
+        let openAiApiKey = '';
+        let currentModel = 'gpt-3.5-turbo';
+        let chatHistory = [];
+
+        // --- Core Functions ---
+
+        /**
+         * Fetches a response from the OpenAI AI model.
+         * @param {string} prompt The user's input.
+         * @returns {Promise<string>} The AI's response text.
+         */
+        async function getAiResponse(prompt) {
+            // Add user message to history for context
+            chatHistory.push({ role: "user", content: prompt });
+            
+            const apiUrl = 'https://api.openai.com/v1/chat/completions';
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${openAiApiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: currentModel,
+                        messages: chatHistory
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    console.error("API Error Response:", errorBody);
+                    let errorMessage = `API request failed: ${errorBody.error?.message || response.statusText}`;
+                    if(response.status === 401) errorMessage = "Authentication failed. Please check your API key in settings.";
+                    throw new Error(errorMessage);
+                }
+
+                const result = await response.json();
+
+                if (result.choices && result.choices.length > 0 && result.choices[0].message) {
+                    const aiText = result.choices[0].message.content;
+                    // Add AI response to history
+                    chatHistory.push({ role: "assistant", content: aiText });
+                    return aiText;
+                } else {
+                    console.error("Unexpected API response structure:", result);
+                    return "I received an empty or invalid response from the AI.";
+                }
+            } catch (error) {
+                console.error('Error fetching AI response:', error);
+                return `Sorry, an error occurred: ${error.message}. Please check the console for details.`;
+            }
+        }
+
+        /**
+         * Appends a message to the chat UI.
+         * @param {('user'|'ai'|'loading')} sender The sender of the message.
+         * @param {string | null} text The message content. Null for loading state.
+         */
+        function addMessageToUI(sender, text) {
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = 'flex items-start gap-4';
+
+            // Avatar
+            const avatar = document.createElement('div');
+            avatar.className = 'flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white font-bold';
+            if (sender === 'user') {
+                avatar.classList.add('bg-blue-600');
+                avatar.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+            } else { // AI or Loading
+                avatar.classList.add('bg-teal-500');
+                avatar.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>`;
+            }
+            
+            // Content
+            const contentContainer = document.createElement('div');
+            contentContainer.className = 'bg-gray-800 rounded-lg p-4 w-full';
+            
+            if (sender === 'loading') {
+                contentContainer.innerHTML = `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: 0.2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: 0.4s;"></div></div>`;
+            } else if (sender === 'ai') {
+                contentContainer.classList.add('prose');
+                contentContainer.innerHTML = marked.parse(text);
+                addCopyButtons(contentContainer);
+                contentContainer.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+            } else { // User
+                const p = document.createElement('p');
+                p.textContent = text;
+                contentContainer.appendChild(p);
+            }
+            
+            if(initialMessage) {
+                initialMessage.parentElement.remove();
+            }
+
+            messageWrapper.appendChild(avatar);
+            messageWrapper.appendChild(contentContainer);
+            chatContainer.appendChild(messageWrapper);
+            
+            document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
+            
+            return messageWrapper;
+        }
+
+        /** Adds copy buttons to all <pre> blocks within a container. */
+        function addCopyButtons(container) {
+            const preBlocks = container.querySelectorAll('pre');
+            preBlocks.forEach(block => {
+                const button = document.createElement('button');
+                button.innerText = 'Copy';
+                button.className = 'copy-btn';
+                button.addEventListener('click', () => {
+                    const code = block.querySelector('code').innerText;
+                    const textArea = document.createElement('textarea');
+                    textArea.value = code;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    try {
+                        document.execCommand('copy');
+                        button.innerText = 'Copied!';
+                    } catch (err) {
+                        console.error('Failed to copy text: ', err);
+                        button.innerText = 'Error';
+                    }
+                    document.body.removeChild(textArea);
+                    setTimeout(() => { button.innerText = 'Copy'; }, 2000);
+                });
+                block.appendChild(button);
+            });
+        }
+
+        // --- Event Handlers ---
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            if (!openAiApiKey) {
+                alert("Please set your OpenAI API key in the settings.");
+                return;
+            }
+            const prompt = promptInput.value.trim();
+            if (!prompt) return;
+
+            setFormState(true);
+            promptInput.value = '';
+            autoResizeTextarea();
+
+            addMessageToUI('user', prompt);
+            const loadingMessage = addMessageToUI('loading', null);
+
+            const aiResponse = await getAiResponse(prompt);
+            chatContainer.removeChild(loadingMessage);
+            addMessageToUI('ai', aiResponse);
+
+            setFormState(false);
+        }
+        
+        function setFormState(isDisabled) {
+            const hasApiKey = !!openAiApiKey;
+            promptInput.disabled = isDisabled || !hasApiKey;
+            sendButton.disabled = isDisabled || !hasApiKey;
+
+            if (!hasApiKey) {
+                 promptInput.placeholder = "Add API key in settings...";
+            } else if (isDisabled) {
+                promptInput.placeholder = "AI is thinking...";
+            } else {
+                promptInput.placeholder = "Type your message...";
+                promptInput.focus();
+            }
+        }
+        
+        function autoResizeTextarea() {
+            promptInput.style.height = 'auto';
+            promptInput.style.height = (promptInput.scrollHeight) + 'px';
+        }
+
+        function handleSaveSettings(e) {
+            e.preventDefault();
+            const key = apiKeyInput.value.trim();
+            const model = modelSelect.value;
+            
+            if (key) {
+                openAiApiKey = key;
+                currentModel = model;
+                console.log(`Settings saved. Model: ${currentModel}`);
+                // Reset chat history if model or key changes
+                chatHistory = [];
+                setFormState(false);
+                settingsModal.classList.add('hidden');
+            } else {
+                alert("Please enter a valid API key.");
+            }
+        }
+
+        // --- Event Listeners ---
+        chatForm.addEventListener('submit', handleFormSubmit);
+        promptInput.addEventListener('input', autoResizeTextarea);
+        promptInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                chatForm.dispatchEvent(new Event('submit'));
+            }
+        });
+        
+        // Settings Modal Listeners
+        settingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+        closeSettingsBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+        settingsForm.addEventListener('submit', handleSaveSettings);
+
+
+        // Initial setup
+        setFormState(true); // Initially disable form until API key is set
+
+    </script>
+</body>
+</html>
